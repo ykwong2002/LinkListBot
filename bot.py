@@ -98,7 +98,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "*Step 1:* Set up your links in private chat\n"
         "- Use the buttons to add LinkedIn & Instagram links\n\n"
         "*Step 2:* Add the bot to your group chat\n"
-        "- Search for @YourBotUsername and add to group\n\n"
+        "- Search for @linklistbot_bot and add to group\n\n"
         "*Step 3:* Start a chain in the group\n"
         "- Type /chain in the group chat\n\n"
         "*Step 4:* Add your links to the chain\n"
@@ -344,7 +344,31 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
         elif query.data == 'help':
-            await help_command(update, context)
+            help_text = (
+                "🔄 *LinkList Bot Help*\n\n"
+                "*Step 1:* Set up your links in private chat\n"
+                "- Use the buttons to add LinkedIn & Instagram links\n\n"
+                "*Step 2:* Add the bot to your group chat\n"
+                "- Search for @linklistbot_bot and add to group\n\n"
+                "*Step 3:* Start a chain in the group\n"
+                "- Type /chain in the group chat\n\n"
+                "*Step 4:* Add your links to the chain\n"
+                "- Click 'Add Me (LinkedIn)' or 'Add Me (Instagram)'\n"
+                "- The bot will update the message with everyone's links\n\n"
+                "*Additional Commands:*\n"
+                "/start - Show the main menu\n"
+                "/help - Show this help message\n"
+                "/chain - Start a link chain in a group\n"
+                "/edit_linkedin - Edit your LinkedIn link\n"
+                "/edit_instagram - Edit your Instagram link\n"
+                "/remove_linkedin - Remove your LinkedIn link\n"
+                "/remove_instagram - Remove your Instagram link"
+            )
+            
+            await query.message.reply_text(
+                help_text,
+                parse_mode='Markdown'
+            )
             return
     
     # For group chats, continue with existing functionality
@@ -405,7 +429,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Guide the user to set up their link first
             await query.message.reply_text(
                 "❗ You haven't set your LinkedIn link yet!\n\n"
-                "1️⃣ Start a private chat with me: @YourBotUsername\n"
+                "1️⃣ Start a private chat with me: @linklistbot_bot\n"
                 "2️⃣ Use the Add LinkedIn button to set your link\n"
                 "3️⃣ Then come back to the group and try again"
             )
@@ -416,7 +440,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # Guide the user to set up their link first
             await query.message.reply_text(
                 "❗ You haven't set your Instagram link yet!\n\n"
-                "1️⃣ Start a private chat with me: @YourBotUsername\n"
+                "1️⃣ Start a private chat with me: @linklistbot_bot\n"
                 "2️⃣ Use the Add Instagram button to set your link\n"
                 "3️⃣ Then come back to the group and try again"
             )
