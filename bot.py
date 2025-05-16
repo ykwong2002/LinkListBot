@@ -55,16 +55,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_links = get_user_links(user_id) or {}
     
     welcome_text = (
-        "👋 Welcome to LinkList Bot!\n\n"
-        "I help people share their LinkedIn and Instagram links in group chats.\n\n"
-        "🔄 *How it works:*\n"
-        "1️⃣ Set up your links in this private chat\n"
-        "2️⃣ Add me to any group chat\n"
-        "3️⃣ Use /chain in the group to start a link collection\n"
-        "4️⃣ Click buttons to add your links to the chain\n\n"
-        "Please use the buttons below to manage your links:"
+    "👋 *Welcome to LinkList Bot!*\n\n"
+    "I make it easy for groups to share LinkedIn and Instagram links through a single, clean chain message — perfect for *networking events*, *orientation camps*, or *project teams*.\n\n"
+    "🌟 *What makes me different?*\n"
+    "You only need to set up your LinkedIn and Instagram *once* in this private chat — after that, adding yourself to the chain in *any* group takes just *one tap* 👉📲.\n\n"
+    "🔄 *How it works:*\n"
+    "1️⃣ Set up your links below\n"
+    "2️⃣ Add me to any group chat\n"
+    "3️⃣ Use /chain in the group to start a link list\n"
+    "4️⃣ Tap the button to instantly add yourself\n\n"
+    "✅ No need to retype usernames or copy-paste links\n"
+    "✅ Just click others’ names to open their profiles directly\n\n"
+    "Ready to connect smarter? Use the buttons below to set up your links:"
     )
-    
+
     # Show different buttons based on what links are already set
     keyboard = []
     if user_links.get('linkedin'):
