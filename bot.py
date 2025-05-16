@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes, MessageHandler, filters
@@ -12,7 +13,9 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 import firebase_admin
 from firebase_admin import credentials
 
-cred = credentials.Certificate("path/to/serviceAccountKey.json")
+# Load Firebase credentials from environment variable (recommended for Render)
+service_account_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
+cred = credentials.Certificate(service_account_info)
 firebase_admin.initialize_app(cred)
 
 # Setup logging
