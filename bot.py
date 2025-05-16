@@ -47,7 +47,7 @@ def get_group_users(chat_id: str):
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to LinkUp Bot!\nPlease send me your LinkedIn link:"
+        "👋 Welcome to LinkList Bot!\nPlease send me your LinkedIn link:"
     )
     context.user_data['awaiting'] = 'linkedin'
 
