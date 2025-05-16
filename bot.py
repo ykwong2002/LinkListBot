@@ -607,24 +607,42 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == 'add_linkedin':
         platform = 'linkedin'
         if not links or not links.get(platform):
-            # Guide the user to set up their link first
-            await query.message.reply_text(
-                "❗ You haven't set your LinkedIn link yet!\n\n"
-                "1️⃣ Start a private chat with me: @linklistbot_bot\n"
-                "2️⃣ Use the Add LinkedIn button to set your link\n"
-                "3️⃣ Then come back to the group and try again"
-            )
+            # Guide the user to set up their link first, but in private chat
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❗ You haven't set your LinkedIn link yet!\n\n"
+                    "Please use the button below to set up your LinkedIn link:",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("➕ Add LinkedIn", callback_data='add_linkedin_btn')]
+                    ])
+                )
+            except Exception as e:
+                logging.error(f"Error sending private message: {e}")
+                # Only if private message fails, send message in group
+                await query.message.reply_text(
+                    "❗ You need to set up your LinkedIn link first. Please start a private chat with me."
+                )
             return
     elif query.data == 'add_instagram':
         platform = 'instagram'
         if not links or not links.get(platform):
-            # Guide the user to set up their link first
-            await query.message.reply_text(
-                "❗ You haven't set your Instagram link yet!\n\n"
-                "1️⃣ Start a private chat with me: @linklistbot_bot\n"
-                "2️⃣ Use the Add Instagram button to set your link\n"
-                "3️⃣ Then come back to the group and try again"
-            )
+            # Guide the user to set up their link first, but in private chat
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text="❗ You haven't set your Instagram link yet!\n\n"
+                    "Please use the button below to set up your Instagram link, or simply send me your username as @username:",
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("➕ Add Instagram", callback_data='add_instagram_btn')]
+                    ])
+                )
+            except Exception as e:
+                logging.error(f"Error sending private message: {e}")
+                # Only if private message fails, send message in group
+                await query.message.reply_text(
+                    "❗ You need to set up your Instagram link first. Please start a private chat with me."
+                )
             return
     
     # Track user contributions in the group
