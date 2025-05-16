@@ -17,7 +17,7 @@ from firebase_admin import credentials, db
 # Load Firebase credentials from environment variable (recommended for Render)
 service_account_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
 cred = credentials.Certificate(service_account_info)
-# You must set FIREBASE_DATABASE_URL in your environment variables (Render dashboard)
+# You must set FIREBASE_DATABASE_URL in your environment variables (Railway dashboard)
 db_url = os.getenv("FIREBASE_DATABASE_URL")
 firebase_admin.initialize_app(cred, {
     'databaseURL': db_url
@@ -29,7 +29,7 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# ------------- User Data Logic -------------
+# ------------- User Data Logic (endpoint for individual users) -------------
 def save_user_links(user_id: str, platform: str, link: str):
     ref = db.reference(f'users/{user_id}')
     ref.update({platform: link})
@@ -37,7 +37,7 @@ def save_user_links(user_id: str, platform: str, link: str):
 def get_user_links(user_id: str):
     return db.reference(f'users/{user_id}').get()
 
-# ------------- Group Message Logic -------------
+# ------------- Group Message Logic (endpoints for group messages) -------------
 def save_group_user(chat_id: str, user_id: str):
     ref = db.reference(f'groups/{chat_id}')
     members = ref.get() or []
@@ -63,7 +63,6 @@ def get_active_chain(chat_id: str):
     return db.reference(f'active_chains/{chat_id}').get()
 
 # ------------- Telegram Handlers -------------
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if this is a group chat
     if update.effective_chat.type in ['group', 'supergroup']:
@@ -129,7 +128,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         keyboard.append([InlineKeyboardButton("➕ Add Instagram", callback_data='add_instagram_btn')])
     
-    # Add help and group instructions
+    # Add help and group instructions (currently not functional)
     keyboard.append([InlineKeyboardButton("❓ How to Use", callback_data='help')])
     
     await update.message.reply_text(
@@ -233,11 +232,11 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
             save_user_links(user_id, 'instagram', instagram_link)
             await update.message.reply_text("✅ Instagram link saved!")
         elif instagram_pattern.search(text):
-            # It's already a proper Instagram link
+            # It's already a proper Instagram link, so no need for reformatting
             save_user_links(user_id, 'instagram', text)
             await update.message.reply_text("✅ Instagram link saved!")
         else:
-            # Invalid format
+            # Invalid format of Instagram
             await update.message.reply_text(
                 "Please send a valid Instagram username (@username) or link (instagram.com/username)."
             )
@@ -254,7 +253,7 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ])
             )
         else:
-            # Show the success message with instructions for group chat
+            # Show the success message with instructions for group chat --> redirection to group chat
             await update.message.reply_text(
                 "🎉 *All Set!*\n\n"
                 "You can now add me to group chats and share your links.\n\n"
@@ -303,7 +302,7 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "LinkedIn format: linkedin.com/in/username\n"
             "Instagram format: @username or instagram.com/username"
         )
-
+# Initialize the networking chain in the group chat
 async def start_chain(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if this is a group chat
     if update.effective_chat.type not in ['group', 'supergroup']:
@@ -370,7 +369,7 @@ async def start_chain(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(update.effective_chat.id)
     previous_chain_id = save_active_chain(chat_id, chain_message.message_id)
     
-    # If there was a previous chain, update it to remove interactive buttons
+    # If there was a previous chain, update it to remove interactive buttons (ARCHIIVE to prevent confusion)
     if previous_chain_id:
         try:
             # Get all participants from the current active chain's contributions
@@ -537,7 +536,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = str(query.message.chat.id)
     message_id = query.message.message_id
     
-    # Check if this is the active chain message
+    # Check if this is the active chain message, redirect to lowest message (most recent)
     active_chain_id = get_active_chain(chat_id)
     if active_chain_id != message_id:
         await query.message.reply_text(
@@ -547,7 +546,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     
     if query.data == 'remove_me':
-        # Remove user from group
+        # Remove user from group in realtime DB
         members = get_group_users(chat_id)
         if user_id in members:
             members.remove(user_id)
@@ -589,7 +588,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode='Markdown'
         )
         
-        # Send confirmation to the user's private chat instead of the group
+        # Send confirmation to the user's private chat instead of the group (prevent spamming)
         try:
             await context.bot.send_message(
                 chat_id=user_id,
