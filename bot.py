@@ -319,17 +319,31 @@ async def start_chain(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Check if the user has set up any links
     if not user_links or (not user_links.get('linkedin') and not user_links.get('instagram')):
-        # Redirect to private chat if no links are set up
+        # Send detailed instructions to private chat only - no message in group
         user = update.effective_user
-        await update.message.reply_text(
-            f"👋 Hi {user.first_name}!\n\n"
-            "⚠️ *You need to set up your links privately first*\n\n"
-            "👇 *Click this button to start a private chat with me:*",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("▶️ SET UP MY LINKS", url=f"https://t.me/linklistbot_bot?start=from_group")]
-            ]),
-            parse_mode='Markdown'
-        )
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"👋 Hi {user.first_name}!\n\n"
+                "⚠️ *You need to set up your links privately first*\n\n"
+                "👇 *Please use the buttons below to set up your links:*",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("➕ Add LinkedIn", callback_data='add_linkedin_btn')],
+                    [InlineKeyboardButton("➕ Add Instagram", callback_data='add_instagram_btn')]
+                ]),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logging.error(f"Error sending private message: {e}")
+            # If sending private message fails, send message in group
+            await update.message.reply_text(
+                f"👋 Hi {user.first_name}!\n\n"
+                "You need to start a private chat with me first to set up your links.\n\n"
+                "👇 Click the button below to set up your links:",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("▶️ SET UP MY LINKS", url=f"https://t.me/linklistbot_bot?start=from_group")]
+                ])
+            )
         return
         
     intro_text = (
