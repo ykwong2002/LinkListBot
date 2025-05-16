@@ -170,7 +170,9 @@ async def edit_linkedin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['awaiting'] = 'linkedin_edit'
 
 async def edit_instagram(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Please send your new Instagram link:")
+    await update.message.reply_text(
+        "Please send your new Instagram profile link or just your username (e.g., @username):"
+    )
     context.user_data['awaiting'] = 'instagram_edit'
 
 async def remove_linkedin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -199,6 +201,7 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     linkedin_pattern = re.compile(r"linkedin\.com/(in|pub|company)/[\w\-]+", re.IGNORECASE)
     instagram_pattern = re.compile(r"instagram\.com/([\w\.]+)", re.IGNORECASE)
+    instagram_username_pattern = re.compile(r"^@([\w\.]+)$")
 
     if context.user_data.get('awaiting') == 'linkedin' and linkedin_pattern.search(text):
         save_user_links(user_id, 'linkedin', text)
@@ -208,7 +211,8 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_links = get_user_links(user_id) or {}
         if not user_links.get('instagram'):
             await update.message.reply_text(
-                "Would you like to add your Instagram link too?",
+                "Would you like to add your Instagram link too?\n"
+                "You can simply send your username as @username",
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("➕ Add Instagram", callback_data='add_instagram_btn')],
                     [InlineKeyboardButton("Skip", callback_data='skip_instagram')]
@@ -219,9 +223,25 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         context.user_data.pop('awaiting', None)
 
-    elif context.user_data.get('awaiting') == 'instagram' and instagram_pattern.search(text):
-        save_user_links(user_id, 'instagram', text)
-        await update.message.reply_text("✅ Instagram link saved!")
+    elif context.user_data.get('awaiting') == 'instagram':
+        # Check if it's an @username format
+        username_match = instagram_username_pattern.match(text)
+        if username_match:
+            # Convert @username to a proper Instagram link
+            username = username_match.group(1)
+            instagram_link = f"https://instagram.com/{username}"
+            save_user_links(user_id, 'instagram', instagram_link)
+            await update.message.reply_text("✅ Instagram link saved!")
+        elif instagram_pattern.search(text):
+            # It's already a proper Instagram link
+            save_user_links(user_id, 'instagram', text)
+            await update.message.reply_text("✅ Instagram link saved!")
+        else:
+            # Invalid format
+            await update.message.reply_text(
+                "Please send a valid Instagram username (@username) or link (instagram.com/username)."
+            )
+            return
         
         # Check if the user already has a LinkedIn link
         user_links = get_user_links(user_id) or {}
@@ -254,17 +274,34 @@ async def handle_link(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await show_main_menu(update, context)
         context.user_data.pop('awaiting', None)
 
-    elif context.user_data.get('awaiting') == 'instagram_edit' and instagram_pattern.search(text):
-        save_user_links(user_id, 'instagram', text)
-        await update.message.reply_text("✅ Instagram link updated!")
-        await show_main_menu(update, context)
-        context.user_data.pop('awaiting', None)
+    elif context.user_data.get('awaiting') == 'instagram_edit':
+        # Check if it's an @username format
+        username_match = instagram_username_pattern.match(text)
+        if username_match:
+            # Convert @username to a proper Instagram link
+            username = username_match.group(1)
+            instagram_link = f"https://instagram.com/{username}"
+            save_user_links(user_id, 'instagram', instagram_link)
+            await update.message.reply_text("✅ Instagram link updated!")
+            await show_main_menu(update, context)
+            context.user_data.pop('awaiting', None)
+        elif instagram_pattern.search(text):
+            # It's already a proper Instagram link
+            save_user_links(user_id, 'instagram', text)
+            await update.message.reply_text("✅ Instagram link updated!")
+            await show_main_menu(update, context)
+            context.user_data.pop('awaiting', None)
+        else:
+            # Invalid format
+            await update.message.reply_text(
+                "Please send a valid Instagram username (@username) or link (instagram.com/username)."
+            )
 
     else:
         await update.message.reply_text(
-            "Please send a valid link (LinkedIn or Instagram).\n\n"
+            "Please send a valid link or username.\n\n"
             "LinkedIn format: linkedin.com/in/username\n"
-            "Instagram format: instagram.com/username"
+            "Instagram format: @username or instagram.com/username"
         )
 
 async def start_chain(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -410,7 +447,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
             
         elif query.data == 'add_instagram_btn' or query.data == 'edit_instagram_btn':
-            await query.message.reply_text("Please send your Instagram profile link:")
+            await query.message.reply_text(
+                "Please send your Instagram profile link or just your username (e.g., @username):"
+            )
             context.user_data['awaiting'] = 'instagram'
             return
             
@@ -535,7 +574,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(keyboard),
             parse_mode='Markdown'
         )
-        await query.message.reply_text("You have been removed from the chain.")
+        
+        # Send confirmation to the user's private chat instead of the group
+        try:
+            await context.bot.send_message(
+                chat_id=user_id,
+                text=f"✅ You have been removed from the networking chain in {query.message.chat.title}."
+            )
+        except Exception as e:
+            logging.error(f"Error sending private message: {e}")
+            
         return
 
     links = get_user_links(user_id)
