@@ -48,25 +48,67 @@ def save_group_user(chat_id: str, user_id: str):
 def get_group_users(chat_id: str):
     return db.reference(f'groups/{chat_id}').get() or []
 
+# Track active chain messages in groups
+def save_active_chain(chat_id: str, message_id: int):
+    # Deactivate previous chain if it exists
+    previous_chain = db.reference(f'active_chains/{chat_id}').get()
+    
+    # Save new active chain
+    db.reference(f'active_chains/{chat_id}').set(message_id)
+    
+    # Return the previous chain id if there was one
+    return previous_chain
+
+def get_active_chain(chat_id: str):
+    return db.reference(f'active_chains/{chat_id}').get()
+
 # ------------- Telegram Handlers -------------
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if this is a group chat
+    if update.effective_chat.type in ['group', 'supergroup']:
+        user = update.effective_user
+        await update.message.reply_text(
+            f"👋 Hi {user.first_name}!\n\n"
+            "⚠️ *You need to set up your links privately first*\n\n"
+            "👇 *Click this button to start a private chat with me:*",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("▶️ SET UP MY LINKS", url=f"https://t.me/linklistbot_bot?start=from_group")]
+            ]),
+            parse_mode='Markdown'
+        )
+        return
+        
     user_id = str(update.message.from_user.id)
     user_links = get_user_links(user_id) or {}
     
+    # Check if user was redirected from a group chat
+    from_group = False
+    if context.args and context.args[0] == "from_group":
+        from_group = True
+    
     welcome_text = (
-    "👋 *Welcome to LinkList Bot!*\n\n"
-    "I make it easy for groups to share LinkedIn and Instagram links through a single, clean chain message — perfect for *networking events*, *orientation camps*, or *project teams*.\n\n"
-    "🌟 *What makes me different?*\n"
-    "You only need to set up your LinkedIn and Instagram *once* in this private chat — after that, adding yourself to the chain in *any* group takes just *one tap* 👉📲.\n\n"
-    "🔄 *How it works:*\n"
-    "1️⃣ Set up your links below\n"
-    "2️⃣ Add me to any group chat\n"
-    "3️⃣ Use /chain in the group to start a link list\n"
-    "4️⃣ Tap the button to instantly add yourself\n\n"
-    "✅ No need to retype usernames or copy-paste links\n"
-    "✅ Just click others’ names to open their profiles directly\n\n"
-    "Ready to connect smarter? Use the buttons below to set up your links:"
+        "👋 *Welcome to LinkList Bot!*\n\n"
+    )
+    
+    # Add specific text for users coming from a group
+    if from_group:
+        welcome_text += (
+            "Thanks for clicking through from the group! Let's set up your links first.\n\n"
+        )
+    
+    welcome_text += (
+        "I make it easy for groups to share LinkedIn and Instagram links through a single, clean chain message — perfect for *networking events*, *orientation camps*, or *project teams*.\n\n"
+        "🌟 *What makes me different?*\n"
+        "You only need to set up your LinkedIn and Instagram *once* in this private chat — after that, adding yourself to the chain in *any* group takes just *one tap* 👉📲.\n\n"
+        "🔄 *How it works:*\n"
+        "1️⃣ Set up your links below\n"
+        "2️⃣ Add me to any group chat\n"
+        "3️⃣ Use /chain in the group to start a link list\n"
+        "4️⃣ Tap the button to instantly add yourself\n\n"
+        "✅ No need to retype usernames or copy-paste links\n"
+        "✅ Just click others' names to open their profiles directly\n\n"
+        "Ready to connect smarter? Use the buttons below to set up your links:"
     )
 
     # Show different buttons based on what links are already set
@@ -233,6 +275,25 @@ async def start_chain(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Add me to a group and run /chain there!"
         )
         return
+    
+    # Get the user who initiated the chain
+    user_id = str(update.effective_user.id)
+    user_links = get_user_links(user_id) or {}
+    
+    # Check if the user has set up any links
+    if not user_links or (not user_links.get('linkedin') and not user_links.get('instagram')):
+        # Redirect to private chat if no links are set up
+        user = update.effective_user
+        await update.message.reply_text(
+            f"👋 Hi {user.first_name}!\n\n"
+            "⚠️ *You need to set up your links privately first*\n\n"
+            "👇 *Click this button to start a private chat with me:*",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("▶️ SET UP MY LINKS", url=f"https://t.me/linklistbot_bot?start=from_group")]
+            ]),
+            parse_mode='Markdown'
+        )
+        return
         
     intro_text = (
         "👥 *Networking Links*\n\n"
@@ -246,11 +307,55 @@ async def start_chain(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📸 Add Me (Instagram)", callback_data='add_instagram')],
         [InlineKeyboardButton("❌ Remove Me", callback_data='remove_me')]
     ]
-    await update.message.reply_text(
+    
+    # Send the new chain message
+    chain_message = await update.message.reply_text(
         intro_text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode='Markdown'
     )
+    
+    # Get previous active chain message and deactivate it
+    chat_id = str(update.effective_chat.id)
+    previous_chain_id = save_active_chain(chat_id, chain_message.message_id)
+    
+    # If there was a previous chain, update it to remove interactive buttons
+    if previous_chain_id:
+        try:
+            # Get all participants from the current active chain's contributions
+            group_user_ids = get_group_users(chat_id)
+            text = "👥 Networking Links *(ARCHIVED)*:\n"
+            for idx, uid in enumerate(group_user_ids, 1):
+                info = get_user_links(uid)
+                user_contributions = db.reference(f'group_contributions/{chat_id}/{uid}').get() or {}
+                try:
+                    name = (await context.bot.get_chat(uid)).full_name
+                except:
+                    name = "User"
+                entry = f"{idx}. {name}"
+                
+                has_link = False
+                if user_contributions.get('linkedin') and info.get('linkedin'):
+                    entry += f" – [LinkedIn]({info['linkedin']})"
+                    has_link = True
+                
+                if user_contributions.get('instagram') and info.get('instagram'):
+                    if has_link:
+                        entry += f" | [Instagram]({info['instagram']})"
+                    else:
+                        entry += f" – [Instagram]({info['instagram']})"
+                
+                text += entry + "\n"
+            
+            # Update the previous chain message to remove buttons and mark as archived
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=previous_chain_id,
+                text=text + "\n\n*A new chain has been started. This one is no longer active.*",
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logging.error(f"Error updating previous chain: {e}")
 
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Helper function to show the main menu in private chat"""
@@ -375,8 +480,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
     
-    # For group chats, continue with existing functionality
+    # For group chats
     chat_id = str(query.message.chat.id)
+    message_id = query.message.message_id
+    
+    # Check if this is the active chain message
+    active_chain_id = get_active_chain(chat_id)
+    if active_chain_id != message_id:
+        await query.message.reply_text(
+            "⚠️ This chain is no longer active. Please use the most recent chain message.",
+            reply_to_message_id=message_id
+        )
+        return
     
     if query.data == 'remove_me':
         # Remove user from group
