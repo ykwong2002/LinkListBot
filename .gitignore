@@ -6,3 +6,6 @@
 
 # OS files
 .DS_Store
+
+# Firebase Realtime Database
+serviceAccountKey.json
