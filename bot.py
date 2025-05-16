@@ -11,12 +11,16 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # Firebase setup
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import credentials, db
 
 # Load Firebase credentials from environment variable (recommended for Render)
 service_account_info = json.loads(os.environ["GOOGLE_APPLICATION_CREDENTIALS_JSON"])
 cred = credentials.Certificate(service_account_info)
-firebase_admin.initialize_app(cred)
+# You must set FIREBASE_DATABASE_URL in your environment variables (Render dashboard)
+db_url = os.getenv("FIREBASE_DATABASE_URL")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': db_url
+})
 
 # Setup logging
 logging.basicConfig(
